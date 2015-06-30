@@ -172,6 +172,11 @@
         endif
     " }
 
+    " Setting for ctags jumping {
+        set tags=tags;
+        set autochdir
+    " }
+
 " }
 
 " Vim UI {
@@ -447,6 +452,13 @@
     " fullscreen mode for GVIM and Terminal, need 'wmctrl' in you PATH
     map <silent> <F11> :call system("wmctrl -ir " . v:windowid . " -b toggle,fullscreen")<CR>
 
+    " ignore F1
+    inoremap <F1> <ESC>
+    nnoremap <F1> <ESC>
+    vnoremap <F1> <ESC>
+
+    " expand ctags matches
+    nmap <C-]> :tjump <C-R>=expand("<cword>")<CR><CR>
 " }
 
 " Plugins {
@@ -470,13 +482,6 @@
                 autocmd FileType textile call textobj#quote#init()
                 autocmd FileType text call textobj#quote#init({'educate': 0})
             augroup END
-        endif
-    " }
-
-    " PIV {
-        if isdirectory(expand("~/.vim/bundle/PIV"))
-            let g:DisableAutoPHPFolding = 0
-            let g:PIVAutoClose = 0
         endif
     " }
 
@@ -1149,12 +1154,49 @@
     " e.g. Grep current file for <search_term>: Shell grep -Hn <search_term> %
     " }
 
-" }
-
-" Use fork vimrc if available {
-    if filereadable(expand("~/.vimrc.fork"))
-        source ~/.vimrc.fork
-    endif
+    " Add macro for cpp header file {
+    function InsertHeadDef(firstLine, lastLine)
+        if a:firstLine <1 || a:lastLine> line('$')
+            echoerr 'InsertHeadDef : Range overflow !(FirstLine:'.a:firstLine.';LastLine:'.a:lastLine.';ValidRange:1~'.line('$').')'
+            return ''
+        endif
+        let sourcefilename=expand("%:t")
+        let definename=substitute(sourcefilename,' ','','g')
+        let definename=substitute(definename,'\.','_','g')
+        let definename = toupper(definename)
+        exe 'normal '.a:firstLine.'GO'
+        call setline('.', '#ifndef _'.definename."_")
+        normal ==o
+        call setline('.', '#define _'.definename."_")
+        exe 'normal =='.(a:lastLine-a:firstLine+1).'jo'
+        call setline('.', '#endif')
+        let goLn = a:firstLine+2
+        exe 'normal =='.goLn.'G'
+    endfunction
+    function InsertHeadDefN()
+        let firstLine = 1
+        let lastLine = line('$')
+        let n=1
+        while n < 20
+            let line = getline(n)
+            if n==1
+                if line =~ '^\/\*.*$'
+                    let n = n + 1
+                    continue
+                else
+                    break
+                endif
+            endif
+            if line =~ '^.*\*\/$'
+                let firstLine = n+1
+                break
+            endif
+            let n = n + 1
+        endwhile
+        call InsertHeadDef(firstLine, lastLine)
+    endfunction
+    autocmd BufNewFile *.{h,hpp,H} call InsertHeadDefN()
+    " }
 " }
 
 " Use local vimrc if available {
